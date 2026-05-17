@@ -28,4 +28,18 @@ It also give an interpretation more clear: the odd dimension follow a cyclic fun
 
 What I asked is to visualize this geometrically, because I am really interested about that.
 
+Something interactive, use:
+
+https://html-preview.github.io/?url=https://github.com/danielecr/transformer-thought/blob/main/transformers-in-action/plot-dynamics-canva.html
+
+Other code here:
+* plot-the-pos.py
+* plot-as-canvas.html
+* plot-dynamics-canva.html
+
+The geometrical interpretation is a kind of noise to be added to the dimension, and this noise spawn over each dimension is different ways and frequencies.
+
+Based on the noise, the models "know" where the word is located in the text.
+
+Disclaimer: ask the author, this is just my interpretation.
 
