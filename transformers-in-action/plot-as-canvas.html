@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positional Encoding Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+        }
+        canvas {
+            background-color: #111111;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="plotCanvas" width="1200" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Transformer parameter configuration
+        const d_model = 512;
+        const sequence_length = 1024;
+
+        // Define the dimension indices (i) for the 5 selected rows
+        const selectedRows = [
+            { name: "Row 0 (Denom: 1)", i: 0, color: "#FF1493" },
+            { name: "Row 128 (Denom: 10)", i: 64, color: "#00BFFF" },
+            { name: "Row 256 (Denom: 100)", i: 128, color: "#FF8C00" },
+            { name: "Row 384 (Denom: 1000)", i: 192, color: "#32CD32" },
+            { name: "Row 510 (Denom: ~9646)", i: 255, color: "#9400D3" }
+        ];
+
+        // Canvas Padding and Plot Area Dimensions
+        const padding = { top: 60, right: 240, bottom: 60, left: 60 };
+        const plotWidth = canvas.width - padding.left - padding.right;
+        const plotHeight = canvas.height - padding.top - padding.bottom;
+
+        // Helper function to map data coordinates (X: 0 to 1023, Y: -1.1 to 1.1) to Canvas pixels
+        function mapX(pos) {
+            return padding.left + (pos / (sequence_length - 1)) * plotWidth;
+        }
+        function mapY(val) {
+            // Y values are between -1.1 and 1.1. We invert the axis since canvas Y goes downwards.
+            const normalized = (val - (-1.1)) / (1.1 - (-1.1));
+            return padding.top + (1 - normalized) * plotHeight;
+        }
+
+        // 1. Draw Grid Lines and Labels
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 1;
+        ctx.fillStyle = 'white';
+        ctx.font = '12px sans-serif';
+
+        // Draw horizontal grid lines (Y axis markers)
+        const yMarkers = [-1, -0.5, 0, 0.5, 1];
+        yMarkers.forEach(y => {
+            const canvasY = mapY(y);
+            ctx.beginPath();
+            ctx.moveTo(padding.left, canvasY);
+            ctx.lineTo(padding.left + plotWidth, canvasY);
+            ctx.stroke();
+            ctx.fillText(y.toFixed(1), padding.left - 35, canvasY + 4);
+        });
+
+        // Draw vertical grid lines (X axis markers)
+        const xMarkers = [0, 256, 512, 768, 1023];
+        xMarkers.forEach(x => {
+            const canvasX = mapX(x);
+            ctx.beginPath();
+            ctx.moveTo(canvasX, padding.top);
+            ctx.lineTo(canvasX, padding.top + plotHeight);
+            ctx.stroke();
+            ctx.fillText(x, canvasX - 10, padding.top + plotHeight + 20);
+        });
+
+        // 2. Compute and Plot each Positional Function
+        selectedRows.forEach(row => {
+            // Apply the standard Transformer denominator formula
+            const denominator = Math.pow(10000, (2 * row.i) / d_model);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = row.color;
+            ctx.lineWidth = row.i === 0 ? 1 : 2.5;
+
+            for (let pos = 0; pos < sequence_length; pos++) {
+                // Calculate the Sine value for the current position
+                const yVal = Math.sin(pos / denominator);
+                const canvasX = mapX(pos);
+                const canvasY = mapY(yVal);
+
+                if (pos === 0) {
+                    ctx.moveTo(canvasX, canvasY);
+                } else {
+                    ctx.lineTo(canvasX, canvasY);
+                }
+
+                // Special rendering style for Row 0 to highlight discrete sampling points
+                if (row.i === 0 && pos % 2 === 0) {
+                    ctx.fillStyle = row.color;
+                    ctx.fillRect(canvasX - 1, canvasY - 1, 2, 2); // Draw small custom dot
+                }
+            }
+            ctx.stroke();
+        });
+
+        // 3. Draw Axis Titles
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("Positional Encoding in Transformers: Holistic Row-Wise View (JS)", canvas.width / 2 - 90, 35);
+
+        ctx.font = '13px sans-serif';
+        ctx.fillText("Word Position in the Sentence (X)", canvas.width / 2 - 90, canvas.height - 15);
+
+        // 4. Draw Legend Area
+        ctx.textAlign = 'left';
+        let legendY = padding.top + 30;
+        selectedRows.forEach(row => {
+            // Colored marker indicator
+            ctx.fillStyle = row.color;
+            ctx.fillRect(padding.left + plotWidth + 30, legendY - 10, 15, 15);
+            
+            // Text label description
+            ctx.fillStyle = 'white';
+            ctx.fillText(row.name, padding.left + plotWidth + 55, legendY + 2);
+            legendY += 35;
+        });
+
+    </script>
+</body>
+</html>
+

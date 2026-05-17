@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Positional Encoding Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #111111;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: sans-serif;
+            color: white;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 25px;
+            background-color: #222222;
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid #444444;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type="range"] {
+            width: 250px;
+        }
+        #rowLabel {
+            font-weight: bold;
+            color: #FFFF00;
+            min-width: 140px;
+        }
+        canvas {
+            background-color: #111111;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="iSlider">Dimension Index (i):</label>
+            <input type="range" id="iSlider" min="0" max="255" value="32">
+            <span id="iLabel">32</span>
+        </div>
+        <div class="control-group">
+            <input type="checkbox" id="funcCheckbox" id="funcCheckbox">
+            <label for="funcCheckbox">Use Odd Function (Cos)</label>
+        </div>
+        <div class="control-group">
+            <span>Resulting Row: </span>
+            <span id="rowLabel">Row 64 (Sin)</span>
+        </div>
+    </div>
+
+    <canvas id="plotCanvas" width="1200" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+        const iSlider = document.getElementById('iSlider');
+        const iLabel = document.getElementById('iLabel');
+        const funcCheckbox = document.getElementById('funcCheckbox');
+        const rowLabel = document.getElementById('rowLabel');
+
+        // Transformer parameter configuration
+        const d_model = 512;
+        const sequence_length = 1024;
+
+        // Static rows configuration
+        const staticRows = [
+            { name: "Row 0 (Denom: 1)", i: 0, color: "#FF1493" },
+            { name: "Row 128 (Denom: 10)", i: 64, color: "#00BFFF" },
+            { name: "Row 256 (Denom: 100)", i: 128, color: "#FF8C00" },
+            { name: "Row 384 (Denom: 1000)", i: 192, color: "#32CD32" },
+            { name: "Row 510 (Denom: ~9646)", i: 255, color: "#9400D3" }
+        ];
+
+        // Canvas Padding and Plot Area Dimensions
+        const padding = { top: 60, right: 240, bottom: 60, left: 60 };
+        const plotWidth = canvas.width - padding.left - padding.right;
+        const plotHeight = canvas.height - padding.top - padding.bottom;
+
+        // Helper function to map data coordinates to Canvas pixels
+        function mapX(pos) {
+            return padding.left + (pos / (sequence_length - 1)) * plotWidth;
+        }
+        function mapY(val) {
+            const normalized = (val - (-1.1)) / (1.1 - (-1.1));
+            return padding.top + (1 - normalized) * plotHeight;
+        }
+
+        // Main Draw Function
+        function draw() {
+            // Clear entire canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Get dynamic values from UI inputs
+            const currentI = parseInt(iSlider.value);
+            const useCos = funcCheckbox.checked;
+            
+            // Calculate final row index (even if Sin, odd if Cos)
+            const finalRowIndex = (currentI * 2) + (useCos ? 1 : 0);
+            const currentDenom = Math.pow(10000, (2 * currentI) / d_model);
+
+            // Update UI text labels
+            iLabel.textContent = currentI;
+            rowLabel.textContent = `Row ${finalRowIndex} (${useCos ? 'Cos' : 'Sin'})`;
+
+            // 1. Draw Grid Lines and Labels
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = 'white';
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'left';
+
+            // Draw horizontal grid lines (Y axis markers)
+            const yMarkers = [-1, -0.5, 0, 0.5, 1];
+            yMarkers.forEach(y => {
+                const canvasY = mapY(y);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, canvasY);
+                ctx.lineTo(padding.left + plotWidth, canvasY);
+                ctx.stroke();
+                ctx.fillText(y.toFixed(1), padding.left - 35, canvasY + 4);
+            });
+
+            // Draw vertical grid lines (X axis markers)
+            const xMarkers = [0, 128, 256, 384, 512, 640, 768, 896, 1023];
+            xMarkers.forEach(x => {
+                const canvasX = mapX(x);
+                ctx.beginPath();
+                ctx.moveTo(canvasX, padding.top);
+                ctx.lineTo(canvasX, padding.top + plotHeight);
+                ctx.stroke();
+                ctx.fillText(x, canvasX - 10, padding.top + plotHeight + 20);
+            });
+
+            // 2. Plot Static Rows
+            staticRows.forEach(row => {
+                const denominator = Math.pow(10000, (2 * row.i) / d_model);
+                ctx.beginPath();
+                ctx.strokeStyle = row.color;
+                ctx.lineWidth = row.i === 0 ? 1 : 2;
+
+                for (let pos = 0; pos < sequence_length; pos++) {
+                    const yVal = Math.sin(pos / denominator);
+                    const canvasX = mapX(pos);
+                    const canvasY = mapY(yVal);
+
+                    if (pos === 0) ctx.moveTo(canvasX, canvasY);
+                    else ctx.lineTo(canvasX, canvasY);
+
+                    if (row.i === 0 && pos % 2 === 0) {
+                        ctx.fillStyle = row.color;
+                        ctx.fillRect(canvasX - 1, canvasY - 1, 2, 2);
+                    }
+                }
+                ctx.stroke();
+            });
+
+            // 3. Plot the Dynamic Selected Row (White Bold Line)
+            ctx.beginPath();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 4; // Bold thickness to make it pop
+            ctx.shadowBlur = 10; // Simple glow effect
+            ctx.shadowColor = '#FFFFFF';
+
+            for (let pos = 0; pos < sequence_length; pos++) {
+                // Choose between Sin (even) and Cos (odd) based on checkbox state
+                const yVal = useCos ? Math.cos(pos / currentDenom) : Math.sin(pos / currentDenom);
+                const canvasX = mapX(pos);
+                const canvasY = mapY(yVal);
+
+                if (pos === 0) ctx.moveTo(canvasX, canvasY);
+                else ctx.lineTo(canvasX, canvasY);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow for other drawings
+
+            // 4. Draw Titles and Axis Labels
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'center';
+            ctx.fillText("Interactive Positional Encoding Matrix Explorer", canvas.width / 2 - 90, 20);
+
+            ctx.font = '13px sans-serif';
+            ctx.fillText("Word Position in the Sentence (X)", canvas.width / 2 - 90, canvas.height - 25);
+
+            // 5. Draw Legend Area
+            ctx.textAlign = 'left';
+            let legendY = padding.top + 30;
+            
+            // Draw static items in legend
+            staticRows.forEach(row => {
+                ctx.fillStyle = row.color;
+                ctx.fillRect(padding.left + plotWidth + 30, legendY, 15, 15);
+                ctx.fillStyle = 'white';
+                ctx.fillText(row.name, padding.left + plotWidth + 55, legendY + 12);
+                legendY += 35;
+            });
+
+            // Draw dynamic item indicator in legend
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(padding.left + plotWidth + 30, legendY, 15, 15);
+            ctx.fillStyle = '#FFFF00'; // Target text in yellow
+            ctx.fillText(`Your Selection (Row ${finalRowIndex})`, padding.left + plotWidth + 55, legendY + 12);
+        }
+
+        // Event listeners to refresh layout instantly on user interaction
+        iSlider.addEventListener('input', draw);
+        funcCheckbox.addEventListener('change', draw);
+
+        // Initial launch render
+        draw();
+    </script>
+</body>
+</html>
+
